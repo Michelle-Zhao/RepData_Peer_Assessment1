@@ -1,0 +1,104 @@
+## Analyzing Activity Data 
+Michelle Zhao 
+
+plot system library(lattice)
+
+### Loading and preprocessing the data
+
+1. Load the data (i.e. `read.csv()`)
+
+```r
+if(!file.exists('activity.csv')){
+    unzip('activity.zip')
+}
+data <- read.csv('activity.csv')
+```
+
+### What is mean total number of steps taken per day?
+
+1. Make a histogram of the total number of steps taken each day
+```r
+steps_by_day <- aggregate(steps ~ date, data, sum)
+hist(steps_by_day$steps, main = paste("Total Steps Each Day"), col="blue", xlab="Number of Steps")
+```
+2. Calculate and report the **mean** and **median** total number of steps taken per day
+```r
+rmean <- mean(steps_by_day$steps)
+rmedian <- median(steps_by_day$steps)
+```
+#The mean is 1.0766 × 104 and the median is 10765.
+
+### What is the average daily activity pattern?
+
+1. Make a time series plot (i.e. `type = "l"`) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+```r
+steps_by_interval <- aggregate(steps ~ interval, data, mean)
+
+plot(steps_by_interval$interval,steps_by_interval$steps, type="l", xlab="Interval", ylab="Number of Steps",main="Average Number of Steps per Day by Interval")
+```
+
+2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```r
+max_interval <- steps_by_interval[which.max(steps_by_interval$steps),1]
+```
+#The 5 minutes interval, on average across all the days in the data set, with the maximum number of steps is 835.
+
+### Imputing missing values
+
+Strategy: 
+Missing values were imputed by inserting the average for each interval. Thus, if interval 10 was missing on 10-02-2012, the average for that interval for all days (0.1320755), replaced the NA.
+```r
+incomplete <- sum(!complete.cases(data))
+imputed_data <- transform(data, steps = ifelse(is.na(data$steps), steps_by_interval$steps[match(data$interval, steps_by_interval$interval)], data$steps))
+```
+Zeroes were imputed for 10-01-2012 because it was the first day and would have been over 9,000 steps higher than the following day, which had only 126 steps. NA is supposed to be 0 to fit the rising trend of the data.
+```r
+imputed_data[as.character(imputed_data$date) == "2012-10-01", 1] <- 0
+```
+Recount total steps by day and create Histogram.
+```r
+steps_by_day_i <- aggregate(steps ~ date, imputed_data, sum)
+hist(steps_by_day_i$steps, main = paste("Total Steps Each Day"), col="blue", xlab="Number of Steps")
+```
+Create Histogram to show difference
+```r
+hist(steps_by_day$steps, main = paste("Total Steps Each Day"), col="red", xlab="Number of Steps", add=T)
+legend("topright", c("Imputed", "Non-imputed"), col=c("blue", "red"), lwd=10)
+```
+New mean and median for imputed data.
+```r
+rmean.i <- mean(steps_by_day_i$steps)
+rmedian.i <- median(steps_by_day_i$steps)
+```
+Difference between imputed and non-imputed data.
+```r
+mean_diff <- rmean.i - rmean
+med_diff <- rmedian.i - rmedian
+```
+Total difference.
+```r
+total_diff <- sum(steps_by_day_i$steps) - sum(steps_by_day$steps)
+```
+The new mean is 10590 
+The new median is 10766 
+The difference between the original and new mean is -176.4949
+The difference between the original and new median is 1.1887
+The difference between total number of steps between original and new data is 75363. Thus, there were 75363 more steps in the imputed data.
+
+### Are there differences in activity patterns between weekdays and weekends?
+
+Make a plot
+
+```r
+weekdays <- c("Monday", "Tuesday", "Wednesday", "Thursday", 
+              "Friday")
+imputed_data$dow = as.factor(ifelse(is.element(weekdays(as.Date(imputed_data$date)),weekdays), "Weekday", "Weekend"))
+
+steps_by_interval_i <- aggregate(steps ~ interval + dow, imputed_data, mean)
+
+library(lattice)
+
+xyplot(steps_by_interval_i$steps ~ steps_by_interval_i$interval|steps_by_interval_i$dow, main="Average Steps per Day by Interval",xlab="Interval", ylab="Steps",layout=c(1,2), type="l")
+```
+The plot compares and contrasts number of steps between the week and weekend. There is a higher peak earlier on weekdays, and more overall activity on weekends.
+
